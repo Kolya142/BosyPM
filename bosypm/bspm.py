@@ -68,7 +68,7 @@ if 's' in args:
     install(argv[2])
 
 if 'u' in args:
-    os.system("curl https://raw.githubusercontent.com/Kolya142/BosyPM/refs/heads/main/bosypm.tar.xz -o /tmp/bosypm-package.tar.xz")
+    os.system("curl http://bosyprograms.org/pkgs/bosypm.tar.xz -o /tmp/bosypm-package.tar.xz")
     try:
         install("/tmp/bosypm-package.tar.xz")
     finally:

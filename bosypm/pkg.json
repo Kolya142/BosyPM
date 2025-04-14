@@ -1,1 +1,6 @@
-{"title": "bosypm", "desc": "A package manager", "requires": [], "version": "0.0.3", "entry": "install.sh"}
+{
+    "title": "bosypm",
+    "desc": "A package manager",
+    "version": "0.0.3",
+    "entry": "install.sh"
+}
