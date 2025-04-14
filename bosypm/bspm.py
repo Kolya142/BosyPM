@@ -10,8 +10,8 @@ argv = sys.argv
 argc = len(argv)
 HOME = os.environ["HOME"]
 
-if argc < 3 or argv[1][0] != '-':
-    print(f"Usage: {argv[0]} -[SUsb] <file/link>")
+if argc < 2 or argv[1][0] != '-':
+    print(f"Usage: {argv[0]} -[SVsub] <file/link>")
     sys.exit(1)
 
 args = argv[1][1:]
@@ -34,10 +34,14 @@ def install(path):
 
                 if os.path.exists(lock_path):
                     old_ver = open(lock_path).read()
+                    old_major, old_minor, old_patch = map(int, old_ver.split('.'))
+                    new_major, new_minor, new_patch = map(int, pkg["version"].split('.'))
                     if old_ver == pkg["version"]:
                         print(f"Do you want reinstall {pkg["title"]} {old_ver}(Y/?)?", end="")
+                    elif (old_major > new_major) or (old_major >= new_major and old_minor > new_minor) or (old_major >= new_major and old_minor >= new_minor and old_patch > new_patch):
+                        print(f"\x1b[32mWARNING\x1b[0m Do you want downgrade from {pkg["title"]} {old_ver} to {pkg["version"]}(Y/?)?", end="")
                     else:
-                        print(f"Do you want replace {pkg["title"]} {old_ver} with {pkg["version"]}(Y/?)?", end="")
+                        print(f"Do you want upgrade from {pkg["title"]} {old_ver} to {pkg["version"]}(Y/?)?", end="")
                 else:
                     print(f"Do you want install {pkg["title"]} {pkg["version"]}(Y/?)?", end="")
 
@@ -63,12 +67,15 @@ if 'b' in args:
 if 's' in args:
     install(argv[2])
 
-if 'U' in args:
+if 'u' in args:
     os.system("curl https://raw.githubusercontent.com/Kolya142/BosyPM/refs/heads/main/bosypm.tar.xz -o /tmp/bosypm-package.tar.xz")
     try:
         install("/tmp/bosypm-package.tar.xz")
     finally:
         os.system("rm /tmp/bosypm-package.tar.xz")
+
+if 'V' in args:
+    print('0.0.3')
 
 if 'S' in args:
     subprocess.run(["curl", argv[2], "-o", "/tmp/bosypm-package.tar.xz"])
