@@ -16,7 +16,7 @@ REPOS = [
 ]
 
 if argc < 2 or argv[1][0] != '-':
-    print(f"Usage: {argv[0]} -[SUVsub] <file/link>")
+    print(f"Usage: {argv[0]} -[SULVsub] <file/link>")
     sys.exit(1)
 
 args = argv[1][1:]
@@ -117,9 +117,31 @@ if 'U' in args:
 if 'V' in args:
     print('0.0.4')
 
+if 'L' in args:
+    for repo in REPOS:
+        pkgs = requests.get(repo).json()
+        print(f"Repository {repo}")
+        empty = True
+        for pkg in pkgs:
+            print(pkg["title"], pkg["version"])
+
 if 'S' in args:
-    subprocess.run(["curl", argv[2], "-o", "/tmp/bosypm-package.tar.xz"])
-    try:
-        install("/tmp/bosypm-package.tar.xz")
-    finally:
-        os.system("rm /tmp/bosypm-package.tar.xz")
+    for repo in REPOS:
+        pkgs = requests.get(repo).json()
+        print(f"Repository {repo}")
+        empty = True
+        for pkg in pkgs:
+            if pkg["title"] != argv[2]:
+                continue
+            empty = False
+            try:
+                subprocess.run(["curl", pkg["link"], "-o", "/tmp/bosypm-package.tar.xz"])
+                try:
+                    install("/tmp/bosypm-package.tar.xz")
+                finally:
+                    os.system("rm /tmp/bosypm-package.tar.xz")
+            except Exception:
+                pass
+        if empty:
+            print(f"No such {argv[2]} package")
+            sys.exit(1)
