@@ -6,15 +6,30 @@ import pathlib
 import sys
 import os
 
+import requests
+
 argv = sys.argv
 argc = len(argv)
 HOME = os.environ["HOME"]
+REPOS = [
+    "http://bosyprograms.org/pkgs/index.json"
+]
 
 if argc < 2 or argv[1][0] != '-':
-    print(f"Usage: {argv[0]} -[SVsub] <file/link>")
+    print(f"Usage: {argv[0]} -[SUVsub] <file/link>")
     sys.exit(1)
 
 args = argv[1][1:]
+
+def compare_versions(old, new):
+    old_major, old_minor, old_patch = map(int, old.split('.'))
+    new_major, new_minor, new_patch = map(int, new.split('.'))
+    if (old_major, old_minor, old_patch) == (new_major, new_minor, new_patch):
+        return 0
+    elif (old_major > new_major) or (old_major >= new_major and old_minor > new_minor) or (old_major >= new_major and old_minor >= new_minor and old_patch > new_patch):
+        return -1
+    else:
+        return 1
 
 def install(path):
     os.system("mkdir -p /tmp/bosypm-package")
@@ -74,8 +89,33 @@ if 'u' in args:
     finally:
         os.system("rm /tmp/bosypm-package.tar.xz")
 
+if 'U' in args:
+    for repo in REPOS:
+        pkgs = requests.get(repo).json()
+        print(f"Repository {repo}")
+        empty = True
+        for pkg in pkgs:
+            try:
+                lock_path = str(pathlib.Path(HOME) / f".config/bosypm/.lock{pkg["title"]}")
+                if os.path.exists(lock_path):
+                    old_ver = open(lock_path).read()
+                    cv = compare_versions(old_ver, pkg["version"])
+                    if cv == 1:
+                        empty = False
+                        print(f"Do you want update {pkg["title"]} from ({old_ver}) to ({pkg["version"]})?")
+                        if input()[0].upper() == 'Y':
+                            try:
+                                subprocess.run(["curl", pkg["link"], "-o", "/tmp/bosypm-package.tar.xz"])
+                                install("/tmp/bosypm-package.tar.xz")
+                            finally:
+                                os.system("rm /tmp/bosypm-package.tar.xz")
+            except Exception:
+                pass
+        if empty:
+            print("There nothing to update")
+
 if 'V' in args:
-    print('0.0.3')
+    print('0.0.4')
 
 if 'S' in args:
     subprocess.run(["curl", argv[2], "-o", "/tmp/bosypm-package.tar.xz"])
