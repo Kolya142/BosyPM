@@ -31,7 +31,7 @@ def compare_versions(old, new):
     else:
         return 1
 
-def install(path):
+def install(path, ifexists=0, yes=False):
     os.system("mkdir -p /tmp/bosypm-package")
     os.system(f"mkdir -p {str(pathlib.Path(HOME) / f".config/bosypm")}")
     try:
@@ -43,6 +43,9 @@ def install(path):
             pkg = json.load(f)
             try:
                 lock_path = str(pathlib.Path(HOME) / f".config/bosypm/.lock{pkg["title"]}")
+                if os.path.exists(lock_path):
+                    if ifexists == 1:
+                        return
 
                 if "desc" in pkg and pkg["desc"]:
                     print("Description:\n" + pkg["desc"])
@@ -60,16 +63,42 @@ def install(path):
                 else:
                     print(f"Do you want install {pkg["title"]} {pkg["version"]}(Y/?)?", end="")
 
-                if input()[0].upper() == 'Y':
+                if yes:
+                    print('Y')
+                if yes or input()[0].upper() == 'Y':
                     with open(lock_path, 'w') as lockf:
                         lockf.write(pkg["version"])
                     entry = str(pathlib.Path("/tmp/bosypm-package/") / pkg["entry"])
                     os.chmod(entry, 0o755)
                     subprocess.run([entry], cwd="/tmp/bosypm-package/")
+                    if "deps" in pkg:
+                        for dep in pkg["deps"]:
+                            install_from_repos(dep, 1, True)
             except Exception as e:
                 print(f"Exception during installation:\n{e}")
     finally:
         os.system("rm -rf /tmp/bosypm-package")
+
+def install_from_repos(title, *args):
+    for repo in REPOS:
+        pkgs = requests.get(repo).json()
+        print(f"Repository {repo}")
+        empty = True
+        for pkg in pkgs:
+            if pkg["title"] != title:
+                continue
+            empty = False
+            try:
+                subprocess.run(["curl", pkg["link"], "-o", "/tmp/bosypm-package.tar.xz"])
+                try:
+                    install("/tmp/bosypm-package.tar.xz", *args)
+                finally:
+                    os.system("rm /tmp/bosypm-package.tar.xz")
+            except Exception:
+                pass
+        if empty:
+            print(f"No such {title} package")
+            sys.exit(1)
 
 if 'b' in args:
     name = argv[2].replace('\\', '-').replace('/', '-')
@@ -126,22 +155,4 @@ if 'L' in args:
             print(pkg["title"], pkg["version"])
 
 if 'S' in args:
-    for repo in REPOS:
-        pkgs = requests.get(repo).json()
-        print(f"Repository {repo}")
-        empty = True
-        for pkg in pkgs:
-            if pkg["title"] != argv[2]:
-                continue
-            empty = False
-            try:
-                subprocess.run(["curl", pkg["link"], "-o", "/tmp/bosypm-package.tar.xz"])
-                try:
-                    install("/tmp/bosypm-package.tar.xz")
-                finally:
-                    os.system("rm /tmp/bosypm-package.tar.xz")
-            except Exception:
-                pass
-        if empty:
-            print(f"No such {argv[2]} package")
-            sys.exit(1)
+    install_from_repos(argv[2])
