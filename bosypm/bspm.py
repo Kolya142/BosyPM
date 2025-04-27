@@ -1,10 +1,13 @@
 #!/usr/bin/python3
+import hashlib
 import json
 import subprocess
 import tarfile
 import pathlib
 import sys
 import os
+import time
+from typing import List
 
 import requests
 
@@ -31,15 +34,16 @@ def compare_versions(old, new):
     else:
         return 1
 
-def install(path, ifexists=0, yes=False):
-    os.system("mkdir -p /tmp/bosypm-package")
+def install(path, ifexists=0, yes=False, script_args: List[str] = []):
+    hashname = hashlib.sha256(path.encode()).hexdigest()[:8]
+    os.system(f"mkdir -p /tmp/bosypm-package-{hashname}")
     os.system(f"mkdir -p {str(pathlib.Path(HOME) / f".config/bosypm")}")
     try:
-        if subprocess.run(["tar", "-xvJf", path, "-C", "/tmp/bosypm-package"]).returncode:
+        if subprocess.run(["tar", "-xvJf", path, "-C", f"/tmp/bosypm-package-{hashname}"]).returncode:
             print("Failed to unzip package")
             return
 
-        with open("/tmp/bosypm-package/pkg.json") as f:
+        with open(f"/tmp/bosypm-package-{hashname}/pkg.json") as f:
             pkg = json.load(f)
             try:
                 lock_path = str(pathlib.Path(HOME) / f".config/bosypm/.lock{pkg["title"]}")
@@ -68,16 +72,16 @@ def install(path, ifexists=0, yes=False):
                 if yes or input()[0].upper() == 'Y':
                     with open(lock_path, 'w') as lockf:
                         lockf.write(pkg["version"])
-                    entry = str(pathlib.Path("/tmp/bosypm-package/") / pkg["entry"])
-                    os.chmod(entry, 0o755)
-                    subprocess.run([entry], cwd="/tmp/bosypm-package/")
                     if "deps" in pkg:
                         for dep in pkg["deps"]:
                             install_from_repos(dep, 1, True)
+                    entry = str(pathlib.Path(f"/tmp/bosypm-package-{hashname}/") / pkg["entry"])
+                    os.chmod(entry, 0o755)
+                    subprocess.run([entry] + script_args, cwd=f"/tmp/bosypm-package-{hashname}/")
             except Exception as e:
                 print(f"Exception during installation:\n{e}")
     finally:
-        os.system("rm -rf /tmp/bosypm-package")
+        os.system(f"rm -rf /tmp/bosypm-package-{hashname}")
 
 def install_from_repos(title, *args):
     for repo in REPOS:
@@ -89,11 +93,12 @@ def install_from_repos(title, *args):
                 continue
             empty = False
             try:
-                subprocess.run(["curl", pkg["link"], "-o", "/tmp/bosypm-package.tar.xz"])
+                name = f"/tmp/bosypm-package-{title}.tar.xz"
+                subprocess.run(["curl", pkg["link"], "-o", name])
                 try:
-                    install("/tmp/bosypm-package.tar.xz", *args)
+                    install(name, *args)
                 finally:
-                    os.system("rm /tmp/bosypm-package.tar.xz")
+                    os.system("rm " + name)
             except Exception:
                 pass
         if empty:
@@ -109,14 +114,10 @@ if 'b' in args:
             t.add(str(pathlib.Path(argv[2]) / file), file)
 
 if 's' in args:
-    install(argv[2])
+    install(argv[2], 0, False, argv[3:])
 
 if 'u' in args:
-    os.system("curl http://bosyprograms.org/pkgs/bosypm.tar.xz -o /tmp/bosypm-package.tar.xz")
-    try:
-        install("/tmp/bosypm-package.tar.xz")
-    finally:
-        os.system("rm /tmp/bosypm-package.tar.xz")
+    install_from_repos("bosypm")
 
 if 'U' in args:
     for repo in REPOS:
@@ -155,4 +156,5 @@ if 'L' in args:
             print(pkg["title"], pkg["version"])
 
 if 'S' in args:
-    install_from_repos(argv[2])
+    print(argv[3:])
+    install_from_repos(argv[2], 0, False, argv[3:])

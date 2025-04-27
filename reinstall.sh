@@ -1,2 +1,3 @@
+set -e
 bspm -b bosypm
-sudo bspm -s bosypm.tar.xz
+bspm -s bosypm.tar.xz

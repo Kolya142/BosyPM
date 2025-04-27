@@ -1,6 +1,6 @@
 {
     "title": "bosypm",
     "desc": "A package manager",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "entry": "install.sh"
 }
